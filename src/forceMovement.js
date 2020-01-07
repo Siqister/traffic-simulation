@@ -1,9 +1,10 @@
 export default function(){
 
 	let nodes;
+	let xStops;
 	let yStops;
 	let stopped = false;
-	const stoppingDistance = 20;
+	let stoppingDistance = 20;
 
 	function force(alpha){
 		for(let i = 0, n = nodes.length, node; i < n; ++i){
@@ -13,27 +14,37 @@ export default function(){
 			node.x += node._vx;
 			node.y += node._vy;
 
-			//
 			if(stopped){
-				const yStopNorth = Math.min(...yStops);
-				const yStopSouth = Math.max(...yStops);
 
-				//deal with 4 cases
-				if(node._vy > 0){
-					//for north-to-south objects...
-					if(node.y < yStopNorth){
-						node._vy = Math.min((yStopNorth - node.y)/stoppingDistance,1) * node._vy;
+				if(xStops){
+					const xStopWest = Math.min(...xStops);
+					const xStopEast = Math.max(...xStops);
+
+					//TODO: logic for x stops
+				}
+
+				if(yStops){
+					const yStopNorth = Math.min(...yStops);
+					const yStopSouth = Math.max(...yStops);
+
+					//deal with 4 cases
+					if(node._vy > 0){
+						//for north-to-south objects...
+						if(node.y < yStopNorth){
+							node._vy = Math.min((yStopNorth - node.y)/stoppingDistance,1) * node._vy;
+						}else{
+							//no-op, let them pass through
+						}
 					}else{
-						//no-op, let them pass through
-					}
-				}else{
-					//for south-to-north objects...
-					if(node.y > yStopSouth){
-						node._vy = Math.min((node.y - yStopSouth)/stoppingDistance, 1) * node._vy;
-					}else{
-						//no-op, let them pass through
+						//for south-to-north objects...
+						if(node.y > yStopSouth){
+							node._vy = Math.min((node.y - yStopSouth)/stoppingDistance, 1) * node._vy;
+						}else{
+							//no-op, let them pass through
+						}
 					}
 				}
+
 			}else{
 				node._vx = node._vx0;
 				node._vy = node._vy0;
@@ -46,8 +57,18 @@ export default function(){
 		nodes = _;
 	}
 
+	force.xStops = function(...stops){
+		xStops = stops;
+		return this;
+	}
+
 	force.yStops = function(...stops){
 		yStops = stops;
+		return this;
+	}
+
+	force.stoppingDistance = function(_){
+		stoppingDistance = _;
 		return this;
 	}
 
