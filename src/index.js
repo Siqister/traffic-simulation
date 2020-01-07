@@ -5,16 +5,33 @@ import './style.css';
 import url from './assets/qq-slow-zone-02.svg';
 
 import PedSimulation from './pedSimulation.js';
-import CarSimulation from './carSimulation.js';
+import LightSimulation from './lightSimulation.js';
+
 
 //Global state
 
 const init = async function(){
 
-	//Append DOM 
+	//Append <svg> DOM 
 	const root = await svg(url)
 		.then(doc => select(doc).select('svg')); //d3 selection
 	select('#animation').append(() => root.node());
+
+	//Calculate <svg> viewbox size
+	const viewbox = root.attr('viewBox').split(' ');
+	const viewboxWidth = +viewbox[2];
+	const viewboxHeight = +viewbox[3];
+
+	//Append <canvas> overlay
+	root
+		.attr('width', viewboxWidth)
+		.attr('height', viewboxHeight);
+	const canvas = select('#animation').append('canvas')
+		.attr('width',viewboxWidth)
+		.attr('height',viewboxHeight)
+		.style('position','absolute')
+		.style('top',0)
+		.style('left',0);
 
 	//Compute bounding dimensions for simulations
 	const bound = root.select('#guide-off').select('#bound').style('opacity',0);
@@ -25,12 +42,6 @@ const init = async function(){
 
 	//Define re-usable <svg> components
 	const defs = root.append('defs');
-	defs.append(() => root.select('#lib').select('#ppl-1').node());
-	defs.append(() => root.select('#lib').select('#ppl-2').node());
-	defs.append(() => root.select('#lib').select('#ppl-3').node());
-	defs.append(() => root.select('#lib').select('#ppl-4').node());
-	defs.append(() => root.select('#lib').select('#ppl-5').node());
-	defs.append(() => root.select('#lib').select('#ppl-6').node());
 	defs.append(() => root.select('#lib').select('#car_1_').node());
 
 	//SIMULATIONS
@@ -38,12 +49,10 @@ const init = async function(){
 		x,y,w,h,
 		detectionRange:[.3, .52]
 	});
-	pedSimulation.call(null, root);
+	pedSimulation.call(null, root, canvas);
 
-	const carSimulation = CarSimulation({
-		x,y,w,h
-	});
-	carSimulation.call(null, root);
+	const lightSimulation = LightSimulation();
+	lightSimulation.call(root.select('#flowell'));
 
 	//Event dispatch
 	pedSimulation

@@ -29,7 +29,8 @@ export function seedPedestrian({w,h}){
 		_vy,
 		_vx0:_vx,
 		_vy0:_vy,
-		r: 5 + Math.random()*3
+		r: 7 + Math.random()*5,
+		pplId: Math.floor(Math.random()*6)
 	}
 }
 
@@ -63,4 +64,14 @@ export function cartesianToIso({w,h}){
 			x/2 + y/2
 		];
 	}
+}
+
+export function loadImage(url){
+	return new Promise((resolve, reject) => {
+		const img = new Image();
+		img.addEventListener('load', () => {
+			resolve(img);
+		});
+		img.src = url;
+	});
 }
