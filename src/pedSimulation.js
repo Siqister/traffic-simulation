@@ -2,12 +2,36 @@ import 'babel-polyfill';
 import {forceSimulation, forceCollide, dispatch, select} from 'd3';
 
 import Movement from './forceMovement.js';
-import {delay, seedPedestrian, seedCar, cartesianToIso, loadImage} from './utils.js';
-import {PED_MARGIN, CAR_MARGIN, ROAD_BOUND, CROSSING_BOUND} from './config.js';
+import {delay, seedPedestrian, seedCar, seedLrt, cartesianToIso, loadImage} from './utils.js';
+import {
+	PED_MARGIN, 
+	CAR_MARGIN, 
+	LRT_MARGIN,
+	LRT_LENGTH,
+	CAR_PADDING,
+	LRT_PADDING,
+	ROAD_BOUND, 
+	CROSSING_BOUND,
+	LRT_BOUND,
+	BASE_SPEED
+} from './config.js';
 
 import carSvgUrl from './assets/car-01.svg';
+import lrtWestUrl from './assets/lrt_lrt-w.svg';
+import lrtEastUrl from './assets/lrt_lrt-e.svg';
 
-export default function PedSimulation({x,y,w,h,iso=true,roadBound=ROAD_BOUND, crossingBound=CROSSING_BOUND}={}){
+
+//TODO: image size
+const LRT_IMG_WIDTH = 560;
+const LRT_IMG_HEIGHT = 410;
+
+export default function PedSimulation({
+	x,y,w,h,
+	iso=true,
+	roadBound=ROAD_BOUND, 
+	crossingBound=CROSSING_BOUND,
+	lrtBound=LRT_BOUND
+}={}){
 
 	//Simulation takes place in un-normalized cartesian space with x: 0->w, y: h->0
 	//parameters [x,y] help to translate simulation in place, and [w,h] help to scale the simulation
@@ -22,9 +46,17 @@ export default function PedSimulation({x,y,w,h,iso=true,roadBound=ROAD_BOUND, cr
 	//Internal state
 	let pedInRoad = false;
 	let carInCrossing = false;
+	let lrtInCrossing = false;
 
 	//Dispatch
-	const dispatcher = dispatch('ped:enterRoad', 'ped:clearRoad', 'car:enterCrossing', 'car:clearCrossing');
+	const dispatcher = dispatch(
+		'ped:enterRoad', 
+		'ped:clearRoad', 
+		'car:enterCrossing', 
+		'car:clearCrossing',
+		'lrt:enterCrossing',
+		'lrt:clearCrossing'
+	);
 
 	//Pedestrian simulation logic
 	//Each particle moves according to initial velocity + collision detection
@@ -46,6 +78,14 @@ export default function PedSimulation({x,y,w,h,iso=true,roadBound=ROAD_BOUND, cr
 		.alphaMin(-Math.infinity);
 	let carImg;
 
+	//LRT simulation logic
+	const lrtMovement = Movement(); //LRT will not stop
+	let lrtData = [];
+	const lrtSimulation = forceSimulation()
+		.force('movement', lrtMovement)
+		.alphaMin(-Math.infinity);
+	let lrtWestImg, lrtEastImg;
+
 	async function exports(root, canvas){
 
 		//Canvas context
@@ -55,6 +95,8 @@ export default function PedSimulation({x,y,w,h,iso=true,roadBound=ROAD_BOUND, cr
 
 		//Load car image
 		carImg = await loadImage(carSvgUrl);
+		lrtWestImg = await loadImage(lrtWestUrl);
+		lrtEastImg = await loadImage(lrtEastUrl);
 
 		//Look up path "d" for images of pedestrians
 		root.select('#lib').selectAll('path').each(function(){
@@ -87,12 +129,18 @@ export default function PedSimulation({x,y,w,h,iso=true,roadBound=ROAD_BOUND, cr
 				carData.push(seedCar({w,h}));
 				carSimulation.nodes(carData);
 			}, () => {
-				carData = carData.filter(d => d.x >= -200 && d.x <= w+200);
-			},
-			() => carData.length < 3 
+				carData = carData.filter(d => d.x >= -CAR_PADDING && d.x <= w+CAR_PADDING);
+			}, () => carData.length < 3 
 		); //up to two cars at a time
 
 		//TODO: LRT simulation:
+		lrtSimulation.nodes(lrtData).stop();
+		_seedNewParticle(300, 5000, () => {
+			lrtData.push(seedLrt({w,h}));
+			lrtSimulation.nodes(lrtData);
+		}, () => {
+			lrtData = lrtData.filter(d => d.x >= -LRT_PADDING && d.x <= w+LRT_PADDING);
+		}, () => lrtData.length < 1);
 
 
 		//Event dispatch between simulations
@@ -108,6 +156,14 @@ export default function PedSimulation({x,y,w,h,iso=true,roadBound=ROAD_BOUND, cr
 		dispatcher.on('car:clearCrossing.simulation', () => {
 			pedMovement.stopped(false);
 		});
+		dispatcher.on('lrt:enterCrossing.simulation', () => {
+			console.log('LRT enter!');
+			pedMovement.yStops(lrtBound[0]*h, lrtBound[1]*h).stopped(true);
+		});
+		dispatcher.on('lrt:clearCrossing.simulation', () => {
+			console.log('LRT clear!');
+			pedMovement.yStops(roadBound[0]*h, roadBound[1]*h).stopped(false);
+		});
 
 	}
 
@@ -117,6 +173,7 @@ export default function PedSimulation({x,y,w,h,iso=true,roadBound=ROAD_BOUND, cr
 
 		_updateCar();
 		_updatePedSimulation();
+		_updateLrt();
 
 		ctx.translate(-x, -y);
 		requestAnimationFrame(_update);
@@ -134,7 +191,7 @@ export default function PedSimulation({x,y,w,h,iso=true,roadBound=ROAD_BOUND, cr
 		pedData.forEach(d => {
 			const {x:dx, y:dy, _vx, _vy, vx, vy, pplId} = d;
 			const [isoX, isoY] = isoConverter([dx, dy]);
-			const [isoXTarget, isoYTarget] = isoConverter([dx+(d._vx+d.vx)*30, dy+(d._vy+d.vy)*30]);
+			const [isoXTarget, isoYTarget] = isoConverter([dx+(d._vx+d.vx)*15/BASE_SPEED, dy+(d._vy+d.vy)*15/BASE_SPEED]);
 			const path = new Path2D(pplPathData[pplId]);
 
 			ctx.translate(isoX, isoY-30);
@@ -182,7 +239,7 @@ export default function PedSimulation({x,y,w,h,iso=true,roadBound=ROAD_BOUND, cr
 
 		ctx.fillStyle = 'blue';
 		carData.forEach(d => {
-			const {x:dx,y:dy,pplId} = d;
+			const {x:dx, y:dy} = d;
 			const [isoX, isoY] = isoConverter([dx,dy]);
 
 			ctx.drawImage(carImg, isoX-56, isoY-39, 112, 85);
@@ -207,6 +264,43 @@ export default function PedSimulation({x,y,w,h,iso=true,roadBound=ROAD_BOUND, cr
 			}
 		}
 		
+	}
+
+	function _updateLrt(){
+
+		lrtSimulation.tick();
+
+		//DRAW
+		const circles = new Path2D();
+
+		lrtData.forEach(d => {
+			const {x:dx, y:dy} = d;
+			const [isoX, isoY] = isoConverter([dx,dy]);
+
+			ctx.drawImage(lrtWestImg, isoX-LRT_IMG_WIDTH/2, isoY-LRT_IMG_HEIGHT/2-45, LRT_IMG_WIDTH, LRT_IMG_HEIGHT);
+
+			circles.moveTo(isoX, isoY);
+			circles.arc(isoX, isoY, 2, 0, Math.PI*2);
+		});
+		ctx.fill(circles);
+
+		//DETECTION
+		const westEast = lrtData.filter(d => d._vx>0)
+			.filter(d => d.x > crossingBound[0]*w - LRT_LENGTH/2 - LRT_MARGIN && d.x < crossingBound[1]*w + LRT_LENGTH/2);
+		const eastWest = lrtData.filter(d => d._vx<0)
+			.filter(d => d.x > crossingBound[0]*w - LRT_LENGTH/2 && d.x < crossingBound[1]*w +LRT_LENGTH/2 + LRT_MARGIN);
+		const detected = westEast.length || eastWest.length;
+		if(lrtInCrossing){
+			if(!detected){
+				lrtInCrossing = false;
+				dispatcher.call('lrt:clearCrossing', null, {});
+			}
+		}else{
+			if(detected){
+				lrtInCrossing = true;
+				dispatcher.call('lrt:enterCrossing', null, {});
+			}
+		}
 
 	}
 
@@ -218,7 +312,6 @@ export default function PedSimulation({x,y,w,h,iso=true,roadBound=ROAD_BOUND, cr
 			await randomDelay();
 			if(space()){ seed(); }
 			update();
-			//logger(); //logs current state of the car queue
 		}
 	}
 

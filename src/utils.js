@@ -1,5 +1,14 @@
 import {randomNormal} from 'd3';
-import {CROSSING_BOUND, CAR_LANE_W, CAR_LANE_E, BASE_SPEED} from './config.js';
+import {
+	CROSSING_BOUND, 
+	CAR_LANE_W, 
+	CAR_LANE_E, 
+	LRT_LANE_W,
+	LRT_LANE_E,
+	CAR_PADDING,
+	LRT_PADDING,
+	BASE_SPEED
+} from './config.js';
 
 export function delay(mean, std){
 	const randomGenerator = randomNormal(mean, std);
@@ -41,8 +50,28 @@ export function seedCar({w,h}){
 	const xSpeed = BASE_SPEED * 2.5;
 	const _vx = direction? -xSpeed : xSpeed;
 	const _vy = 0;
-	const x0 = direction? w+200 : -200;
+	const x0 = direction? w+CAR_PADDING : -CAR_PADDING;
 	const y0 = direction? CAR_LANE_W*h : CAR_LANE_E*h;
+
+	return {
+		id: Date.now(),
+		x: x0,
+		y: y0,
+		_vx,
+		_vy,
+		_vx0:_vx,
+		_vy0:_vy
+	}
+}
+
+export function seedLrt({w,h}){
+	const direction = Math.random() > 0.5;
+
+	const xSpeed = BASE_SPEED * 3;
+	const _vx = direction? -xSpeed : xSpeed;
+	const _vy = 0;
+	const x0 = direction? w+600 : -600;
+	const y0 = direction? LRT_LANE_W*h : LRT_LANE_E*h;
 
 	return {
 		id: Date.now(),
