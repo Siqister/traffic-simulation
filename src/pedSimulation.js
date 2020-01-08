@@ -84,7 +84,7 @@ export default function PedSimulation({
 	const lrtSimulation = forceSimulation()
 		.force('movement', lrtMovement)
 		.alphaMin(-Math.infinity);
-	let lrtWestImg, lrtEastImg;
+	let lrtLine, lrtOutline;
 
 	async function exports(root, canvas){
 
@@ -95,13 +95,13 @@ export default function PedSimulation({
 
 		//Load car image
 		carImg = await loadImage(carSvgUrl);
-		lrtWestImg = await loadImage(lrtWestUrl);
-		lrtEastImg = await loadImage(lrtEastUrl);
 
-		//Look up path "d" for images of pedestrians
+		//Look up path "d" for images of pedestrians and LRT
 		root.select('#lib').selectAll('path').each(function(){
 			pplPathData.push(select(this).attr('d'));
 		});
+		lrtLine = root.select('#lib').select('#lrt-outline_1_').attr('d');
+		lrtOutline = root.select('#lib').select('#lrt-line').attr('d');
 
 		//Iniitialize (x,y)
 		ctx.fillStyle = '#ffe340';
@@ -272,16 +272,23 @@ export default function PedSimulation({
 
 		//DRAW
 		const circles = new Path2D();
+		const lrtOutlinePath = new Path2D(lrtOutline);
+		const lrtLinePath = new Path2D(lrtLine);
 
+		ctx.fillStyle = 'rgba(0, 0, 5, 0.03)';
 		lrtData.forEach(d => {
 			const {x:dx, y:dy} = d;
 			const [isoX, isoY] = isoConverter([dx,dy]);
 
-			ctx.drawImage(lrtWestImg, isoX-LRT_IMG_WIDTH/2, isoY-LRT_IMG_HEIGHT/2-45, LRT_IMG_WIDTH, LRT_IMG_HEIGHT);
+			ctx.translate(isoX-LRT_IMG_WIDTH/2, isoY-LRT_IMG_HEIGHT/2-25);
+			ctx.fill(lrtOutlinePath);
+			ctx.fill(lrtLinePath);
+			ctx.translate(-isoX+LRT_IMG_WIDTH/2, -isoY+LRT_IMG_HEIGHT/2+25);
 
 			circles.moveTo(isoX, isoY);
 			circles.arc(isoX, isoY, 2, 0, Math.PI*2);
 		});
+		ctx.fillStyle = 'black';
 		ctx.fill(circles);
 
 		//DETECTION
