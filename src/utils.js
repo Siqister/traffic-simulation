@@ -41,7 +41,7 @@ export function seedCar({w,h}){
 	const xSpeed = BASE_SPEED * 2.5;
 	const _vx = direction? -xSpeed : xSpeed;
 	const _vy = 0;
-	const x0 = direction? w : 0;
+	const x0 = direction? w+200 : -200;
 	const y0 = direction? CAR_LANE_W*h : CAR_LANE_E*h;
 
 	return {

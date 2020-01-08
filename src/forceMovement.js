@@ -1,3 +1,5 @@
+import {BASE_SPEED} from './config.js'
+
 export default function(){
 
 	let nodes;
@@ -7,6 +9,9 @@ export default function(){
 	let stoppingDistance = 20;
 
 	function force(alpha){
+
+		let xStopWest, xStopEast;
+
 		for(let i = 0, n = nodes.length, node; i < n; ++i){
 
 			//Each node moves according to its desired velocity
@@ -17,10 +22,22 @@ export default function(){
 			if(stopped){
 
 				if(xStops){
-					const xStopWest = Math.min(...xStops);
-					const xStopEast = Math.max(...xStops);
+					const crossingWest = Math.min(...xStops);
+					const crossingEast = Math.max(...xStops);
 
-					//TODO: logic for x stops
+					//Logic for car stopping
+					if(node._vx > 0){ 
+					//for cars going from west to east
+						if(node.x < crossingEast){
+						//apply to any car that hasn't cleared crossing
+							if(!xStopWest){ xStopWest = Math.max(node.x+stoppingDistance/3, crossingWest-70); } //for first car in queue only
+							node._vx = Math.min(Math.max((xStopWest - node.x)/stoppingDistance, 0), 1) * node._vx;
+							xStopWest -= 120; //move stopping line back progressively for each subsequent car
+						}
+					}else{
+					//going from east to west
+
+					}
 				}
 
 				if(yStops){
@@ -46,7 +63,7 @@ export default function(){
 				}
 
 			}else{
-				node._vx = node._vx0;
+				node._vx = Math.min(node._vx0, node._vx + 1/(i*5+1)*BASE_SPEED/20); //stagger accleration
 				node._vy = node._vy0;
 			}
 
@@ -73,6 +90,7 @@ export default function(){
 	}
 
 	force.stopped = function(_){
+		if(_ === undefined){ return stopped; }
 		stopped = _;
 		return this;
 	}

@@ -9,9 +9,14 @@ html,body{
 .main{
 	width:100%;
 	height:100%;
+	background: rgb(245,245,255);
 }
 .full-screen{
 	width:100%;
 	height:100%;
 	margin:auto;
+}
+#animation{
+	margin:auto;
+	position: relative;
 }

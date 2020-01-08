@@ -3,11 +3,11 @@ import {forceSimulation, forceCollide, dispatch, select} from 'd3';
 
 import Movement from './forceMovement.js';
 import {delay, seedPedestrian, seedCar, cartesianToIso, loadImage} from './utils.js';
-import {PED_MARGIN, CAR_MARGIN} from './config.js';
+import {PED_MARGIN, CAR_MARGIN, ROAD_BOUND, CROSSING_BOUND} from './config.js';
 
 import carSvgUrl from './assets/car-01.svg';
 
-export default function PedSimulation({x,y,w,h,iso=true,detectionRange=[]}={}){
+export default function PedSimulation({x,y,w,h,iso=true,roadBound=ROAD_BOUND, crossingBound=CROSSING_BOUND}={}){
 
 	//Simulation takes place in un-normalized cartesian space with x: 0->w, y: h->0
 	//parameters [x,y] help to translate simulation in place, and [w,h] help to scale the simulation
@@ -21,6 +21,7 @@ export default function PedSimulation({x,y,w,h,iso=true,detectionRange=[]}={}){
 
 	//Internal state
 	let pedInRoad = false;
+	let carInCrossing = false;
 
 	//Dispatch
 	const dispatcher = dispatch('ped:enterRoad', 'ped:clearRoad', 'car:enterCrossing', 'car:clearCrossing');
@@ -29,7 +30,7 @@ export default function PedSimulation({x,y,w,h,iso=true,detectionRange=[]}={}){
 	//Each particle moves according to initial velocity + collision detection
 	//Velocity decay applies to collision detection only
 	//Simulation is always running
-	const pedMovement = Movement().yStops(h/3, h/3*2);
+	const pedMovement = Movement().yStops(roadBound[0]*h, roadBound[1]*h);
 	let pedData = [];
 	const pedSimulation = forceSimulation()
 		.force('movement', pedMovement)
@@ -38,7 +39,7 @@ export default function PedSimulation({x,y,w,h,iso=true,detectionRange=[]}={}){
 		.alphaMin(-Math.infinity);
 
 	//Car simulation logic
-	const carMovement = Movement();
+	const carMovement = Movement().xStops(crossingBound[0]*w, crossingBound[1]*w);
 	let carData = [];
 	const carSimulation = forceSimulation()
 		.force('movement', carMovement)
@@ -60,8 +61,7 @@ export default function PedSimulation({x,y,w,h,iso=true,detectionRange=[]}={}){
 			pplPathData.push(select(this).attr('d'));
 		});
 
-		//Translate 2D context in place
-		ctx.translate(x,y);
+		//Iniitialize (x,y)
 		ctx.fillStyle = '#ffe340';
 		ctx.strokeStyle = '#4d4d4f';
 
@@ -72,33 +72,53 @@ export default function PedSimulation({x,y,w,h,iso=true,detectionRange=[]}={}){
 		//Simulation results are stored in data
 		//Randomly seed new pedestrian
 		pedSimulation.nodes(pedData).stop(); //tick this simulation manually using requestAnimationFrame
-		_seedNewParticle(2000, 200, () => {
-			//Seed new particle, and filter out particles out of bound
-			pedData.push(seedPedestrian({w,h}));
-			pedData = pedData.filter(d => d.y >= 0 && d.y <= h && d.x >= 0 && d.x <= w)
+		_seedNewParticle(300, 6000, () => {
+			pedData.push(seedPedestrian({w,h})); //Seed new particle, and filter out particles out of bound
+			pedSimulation.nodes(pedData); //Re-initialize simulation with updated data
+		}, () => {
+			pedData = pedData
+				.filter(d => d.y >= 0 && d.y <= h && d.x >= 0 && d.x <= w)
 				.sort((a,b) => a.y - b.y);
-
-			//Re-initialize simulation with updated data
-			pedSimulation.nodes(pedData);
 		});
 
 		//Car simulation:
 		carSimulation.nodes(carData).stop();
-		_seedNewParticle(13000, 6000, () => {
-			carData.push(seedCar({w,h}));
-			carData = carData.filter(d => d.x >= 0 && d.x <= w);
-			carSimulation.nodes(carData);
-		});
-
+		_seedNewParticle(3000, 6000, () => {
+				carData.push(seedCar({w,h}));
+				carSimulation.nodes(carData);
+			}, () => {
+				carData = carData.filter(d => d.x >= -200 && d.x <= w+200);
+			},
+			() => carData.length < 3 
+		); //up to two cars at a time
 
 		//TODO: LRT simulation:
+
+
+		//Event dispatch between simulations
+		dispatcher.on('ped:enterRoad.simulation', () => {
+			carMovement.stopped(true);
+		});
+		dispatcher.on('ped:clearRoad.simulation', () => {
+			carMovement.stopped(false);
+		});
+		dispatcher.on('car:enterCrossing.simulation', () => {
+			pedMovement.stopped(true);
+		});
+		dispatcher.on('car:clearCrossing.simulation', () => {
+			pedMovement.stopped(false);
+		});
 
 	}
 
 	function _update(){
 		ctx.clearRect(0,0,cWidth,cHeight);
-		_updatePedSimulation();
+		ctx.translate(x,y);
+
 		_updateCar();
+		_updatePedSimulation();
+
+		ctx.translate(-x, -y);
 		requestAnimationFrame(_update);
 	}
 
@@ -106,14 +126,15 @@ export default function PedSimulation({x,y,w,h,iso=true,detectionRange=[]}={}){
 
 		pedSimulation.tick(); //manually update force simulation; doesn't trigger events
 
-
 		//DRAW
 		const circles = new Path2D();
+		const lines = new Path2D();
 
 		ctx.fillStyle = '#ffe340';
 		pedData.forEach(d => {
-			const {x:dx,y:dy,pplId} = d;
-			const [isoX, isoY] = isoConverter([dx,dy]);
+			const {x:dx, y:dy, _vx, _vy, vx, vy, pplId} = d;
+			const [isoX, isoY] = isoConverter([dx, dy]);
+			const [isoXTarget, isoYTarget] = isoConverter([dx+(d._vx+d.vx)*30, dy+(d._vy+d.vy)*30]);
 			const path = new Path2D(pplPathData[pplId]);
 
 			ctx.translate(isoX, isoY-30);
@@ -123,16 +144,19 @@ export default function PedSimulation({x,y,w,h,iso=true,detectionRange=[]}={}){
 
 			circles.moveTo(isoX, isoY);
 			circles.arc(isoX, isoY, 2, 0, Math.PI*2);
+			lines.moveTo(isoX, isoY);
+			lines.lineTo(isoXTarget, isoYTarget);
 		});
 		ctx.fillStyle = 'black';
 		ctx.fill(circles);
+		ctx.stroke(lines);
 
 		//DETECTION
 		//Differentiate between N->S peds and S->N peds
 		const northSouth = pedData.filter(d => d._vy0 >= 0)
-			.filter(d => d.y < detectionRange[1]*h-PED_MARGIN && d.y > detectionRange[0]*h-PED_MARGIN);
+			.filter(d => d.y < roadBound[1]*h && d.y > roadBound[0]*h-PED_MARGIN);
 		const southNorth = pedData.filter(d => d._vy0 < 0)
-			.filter(d => d.y < detectionRange[1]*h+PED_MARGIN && d.y > detectionRange[0]*h+PED_MARGIN);
+			.filter(d => d.y < roadBound[1]*h+PED_MARGIN && d.y > roadBound[0]*h);
 		const detected = northSouth.length || southNorth.length;
 
 		//Based on previous state, emit events
@@ -142,7 +166,7 @@ export default function PedSimulation({x,y,w,h,iso=true,detectionRange=[]}={}){
 				dispatcher.call('ped:clearRoad', null, {});
 			}
 		}else{
-			if(detected){
+			if(detected && !pedMovement.stopped()){
 				pedInRoad = true;
 				dispatcher.call('ped:enterRoad', null, {});
 			}
@@ -161,7 +185,7 @@ export default function PedSimulation({x,y,w,h,iso=true,detectionRange=[]}={}){
 			const {x:dx,y:dy,pplId} = d;
 			const [isoX, isoY] = isoConverter([dx,dy]);
 
-			ctx.drawImage(carImg, isoX-56, isoY-39, 112, 78);
+			ctx.drawImage(carImg, isoX-56, isoY-39, 112, 85);
 
 			circles.moveTo(isoX, isoY);
 			circles.arc(isoX, isoY, 2, 0, Math.PI*2);
@@ -170,23 +194,32 @@ export default function PedSimulation({x,y,w,h,iso=true,detectionRange=[]}={}){
 		ctx.stroke(circles);
 
 		//DETECTION
+		const detected = carData.filter(d => d.x > crossingBound[0]*w && d.x < crossingBound[1]*w).length > 0;
+		if(carInCrossing){
+			if(!detected){
+				carInCrossing = false;
+				dispatcher.call('car:clearCrossing', null, {});
+			}
+		}else{
+			if(detected){
+				carInCrossing = true;
+				dispatcher.call('car:enterCrossing', null, {});
+			}
+		}
 		
 
 	}
 
-	async function _seedNewParticle(mean, std, cb){
+	async function _seedNewParticle(mean, std, seed, update, space=()=>true, logger=()=>{}){
 
 		const randomDelay = delay(mean, std);
 
 		while(true){
 			await randomDelay();
-			cb();
+			if(space()){ seed(); }
+			update();
+			//logger(); //logs current state of the car queue
 		}
-	}
-
-	exports.stopped = function(_){
-		movement.stopped(_);
-		return this;
 	}
 
 	exports.on = function(...args){

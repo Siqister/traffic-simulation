@@ -10,4 +10,4 @@ export const PED_MARGIN = 50; //un-normalized
 export const CAR_MARGIN = 80; //un-normalized
 export const LRT_MARGIN = 90; //un-normalized
 
-export const BASE_SPEED = 0.3;
+export const BASE_SPEED = 1;

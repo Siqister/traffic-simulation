@@ -15,12 +15,15 @@ const init = async function(){
 	//Append <svg> DOM 
 	const root = await svg(url)
 		.then(doc => select(doc).select('svg')); //d3 selection
-	select('#animation').append(() => root.node());
-
 	//Calculate <svg> viewbox size
 	const viewbox = root.attr('viewBox').split(' ');
 	const viewboxWidth = +viewbox[2];
 	const viewboxHeight = +viewbox[3];
+
+	select('#animation')
+		.style('width', `${viewboxWidth}px`)
+		.style('height', `${viewboxHeight}px`)
+		.append(() => root.node());
 
 	//Append <canvas> overlay
 	root
@@ -40,24 +43,26 @@ const init = async function(){
 	const w = +root.select('#guide-off').select('#width').style('opacity',0).node().getTotalLength();
 	const h = +root.select('#guide-off').select('#height').style('opacity',0).node().getTotalLength();
 
-	//Define re-usable <svg> components
-	const defs = root.append('defs');
-	defs.append(() => root.select('#lib').select('#car_1_').node());
+	//Hide elements in #lib
+	root.select('#lib').style('display', 'none');
 
 	//SIMULATIONS
 	const pedSimulation = PedSimulation({
-		x,y,w,h,
-		detectionRange:[.3, .52]
+		x,y,w,h
 	});
 	pedSimulation.call(null, root, canvas);
 
 	const lightSimulation = LightSimulation();
-	lightSimulation.call(root.select('#flowell'));
+	lightSimulation.call(null, root.select('#flowell'));
 
 	//Event dispatch
 	pedSimulation
-		.on('ped:enterRoad', () => console.log('ped:enterRoad'))
-		.on('ped:clearRoad', () => console.log('ped:clearRoad'));
+		.on('ped:enterRoad', () => {
+			lightSimulation.turnOn();
+		})
+		.on('ped:clearRoad', () => {
+			lightSimulation.turnOff();
+		});
 
 
 }
