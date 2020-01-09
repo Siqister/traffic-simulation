@@ -13,7 +13,7 @@ import {
 export function delay(mean, std){
 	const randomGenerator = randomNormal(mean, std);
 	return function(){
-		return new Promise((resolve, reject) => setTimeout(resolve, Math.max(randomGenerator(), mean*.25)));
+		return new Promise((resolve, reject) => setTimeout(resolve, Math.max(randomGenerator(), mean*.6)));
 	}
 }
 

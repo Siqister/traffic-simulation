@@ -13,7 +13,13 @@ import {
 	ROAD_BOUND, 
 	CROSSING_BOUND,
 	LRT_BOUND,
-	BASE_SPEED
+	BASE_SPEED,
+	PED_MEAN,
+	PED_STD,
+	CAR_MEAN,
+	CAR_STD,
+	LRT_MEAN,
+	LRT_STD,
 } from './config.js';
 
 import carSvgUrl from './assets/car-01.svg';
@@ -58,6 +64,11 @@ export default function PedSimulation({
 		'lrt:clearCrossing',
 		'dataUpdated'
 	);
+
+	//Random delay
+	let pedDelay = delay(PED_MEAN, PED_STD);
+	let carDelay = delay(CAR_MEAN, CAR_STD);
+	let lrtDelay = delay(LRT_MEAN, LRT_STD);
 
 	//Pedestrian simulation logic
 	//Each particle moves according to initial velocity + collision detection
@@ -112,7 +123,7 @@ export default function PedSimulation({
 		//Simulation results are stored in data
 		//Randomly seed new pedestrian
 		pedSimulation.nodes(pedData).stop(); //tick this simulation manually using requestAnimationFrame
-		_seedNewParticle(300, 6000, () => {
+		_seedNewParticle(pedDelay, () => {
 			pedData.push(seedPedestrian({w,h})); //Seed new particle, and filter out particles out of bound
 			pedSimulation.nodes(pedData); //Re-initialize simulation with updated data
 		}, () => {
@@ -137,7 +148,7 @@ export default function PedSimulation({
 
 		//Car simulation:
 		carSimulation.nodes(carData).stop();
-		_seedNewParticle(3000, 6000, () => {
+		_seedNewParticle(carDelay, () => {
 			carData.push(seedCar({w,h}));
 			carSimulation.nodes(carData);
 		}, () => {
@@ -160,7 +171,7 @@ export default function PedSimulation({
 
 		//TODO: LRT simulation:
 		lrtSimulation.nodes(lrtData).stop();
-		_seedNewParticle(10000, 5000, () => {
+		_seedNewParticle(lrtDelay, () => {
 			lrtData.push(seedLrt({w,h}));
 			lrtSimulation.nodes(lrtData);
 		}, () => {
@@ -350,15 +361,30 @@ export default function PedSimulation({
 
 	}
 
-	async function _seedNewParticle(mean, std, seed, update, space=()=>true, logger=()=>{}){
-
-		const randomDelay = delay(mean, std);
+	async function _seedNewParticle(delay, seed, update, space=()=>true, logger=()=>{}){
 
 		while(true){
-			await randomDelay();
+			await delay();
 			if(space()){ seed(); }
 			update();
 		}
+	}
+
+	exports.updateVolume = function(type, delay){
+		switch(type){
+			case 'ped': 
+				pedDelay = delay;
+				break;
+			case 'car': 
+				carDelay = delay;
+				break;
+			case 'lrt': 
+				lrtDelay = delay;
+				break;
+			default: 
+				break;
+		}
+		return this;
 	}
 
 	exports.on = function(...args){

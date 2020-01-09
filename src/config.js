@@ -22,4 +22,11 @@ export const LRT_PADDING = 900;
 //Un-normalized in pixel space
 export const LRT_LENGTH = 450;
 
+//VOLUME AND SPEED
 export const BASE_SPEED = .8;
+export const PED_MEAN = 300;
+export const PED_STD = 6000;
+export const CAR_MEAN = 3000;
+export const CAR_STD = 6000;
+export const LRT_MEAN = 10000;
+export const LRT_STD = 5000;
