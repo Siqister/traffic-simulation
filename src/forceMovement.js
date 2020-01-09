@@ -33,6 +33,8 @@ export default function(){
 							if(!xStopWest){ xStopWest = Math.max(node.x+stoppingDistance/3, crossingWest-70); } //for first car in queue only
 							node._vx = Math.min(Math.max((xStopWest - node.x)/stoppingDistance, 0), 1) * node._vx;
 							xStopWest -= 120; //move stopping line back progressively for each subsequent car
+						
+							node.delay += 1;
 						}
 					}else{
 					//going from east to west
@@ -49,6 +51,7 @@ export default function(){
 						//for north-to-south objects...
 						if(node.y < yStopNorth){
 							node._vy = Math.min((yStopNorth - node.y)/stoppingDistance,1) * node._vy;
+							node.delay += 1;
 						}else{
 							//no-op, let them pass through
 						}
@@ -56,6 +59,7 @@ export default function(){
 						//for south-to-north objects...
 						if(node.y > yStopSouth){
 							node._vy = Math.min((node.y - yStopSouth)/stoppingDistance, 1) * node._vy;
+							node.delay += 1;
 						}else{
 							//no-op, let them pass through
 						}

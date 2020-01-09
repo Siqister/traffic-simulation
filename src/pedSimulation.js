@@ -17,9 +17,6 @@ import {
 } from './config.js';
 
 import carSvgUrl from './assets/car-01.svg';
-import lrtWestUrl from './assets/lrt_lrt-w.svg';
-import lrtEastUrl from './assets/lrt_lrt-e.svg';
-
 
 //TODO: image size
 const LRT_IMG_WIDTH = 560;
@@ -30,7 +27,10 @@ export default function PedSimulation({
 	iso=true,
 	roadBound=ROAD_BOUND, 
 	crossingBound=CROSSING_BOUND,
-	lrtBound=LRT_BOUND
+	lrtBound=LRT_BOUND,
+	pedData=[],
+	carData=[],
+	lrtData=[]
 }={}){
 
 	//Simulation takes place in un-normalized cartesian space with x: 0->w, y: h->0
@@ -55,7 +55,8 @@ export default function PedSimulation({
 		'car:enterCrossing', 
 		'car:clearCrossing',
 		'lrt:enterCrossing',
-		'lrt:clearCrossing'
+		'lrt:clearCrossing',
+		'dataUpdated'
 	);
 
 	//Pedestrian simulation logic
@@ -63,7 +64,6 @@ export default function PedSimulation({
 	//Velocity decay applies to collision detection only
 	//Simulation is always running
 	const pedMovement = Movement().yStops(roadBound[0]*h, roadBound[1]*h);
-	let pedData = [];
 	const pedSimulation = forceSimulation()
 		.force('movement', pedMovement)
 		.force('collide', forceCollide(d => d.r).strength(0.4))
@@ -72,7 +72,6 @@ export default function PedSimulation({
 
 	//Car simulation logic
 	const carMovement = Movement().xStops(crossingBound[0]*w, crossingBound[1]*w);
-	let carData = [];
 	const carSimulation = forceSimulation()
 		.force('movement', carMovement)
 		.alphaMin(-Math.infinity);
@@ -80,7 +79,6 @@ export default function PedSimulation({
 
 	//LRT simulation logic
 	const lrtMovement = Movement(); //LRT will not stop
-	let lrtData = [];
 	const lrtSimulation = forceSimulation()
 		.force('movement', lrtMovement)
 		.alphaMin(-Math.infinity);
@@ -118,28 +116,69 @@ export default function PedSimulation({
 			pedData.push(seedPedestrian({w,h})); //Seed new particle, and filter out particles out of bound
 			pedSimulation.nodes(pedData); //Re-initialize simulation with updated data
 		}, () => {
+			//Pedestrians to be removed
+			const removed = pedData.filter(d => d.y < 0 || d.y > h || d.x < 0 || d.x > w)
+				.reduce((acc,v) => {
+					acc.count += 1;
+					acc.delay += v.delay;
+					return acc;
+				}, {count:0, delay:0});
+			const count = (pedData.count || 0) + removed.count;
+			const delay = (pedData.delay || 0) + removed.delay;
+
+			//Update
 			pedData = pedData
 				.filter(d => d.y >= 0 && d.y <= h && d.x >= 0 && d.x <= w)
 				.sort((a,b) => a.y - b.y);
+			pedData.count = count;
+			pedData.delay = delay;
+			dispatcher.call('dataUpdated', null, pedData, carData, lrtData);
 		});
 
 		//Car simulation:
 		carSimulation.nodes(carData).stop();
 		_seedNewParticle(3000, 6000, () => {
-				carData.push(seedCar({w,h}));
-				carSimulation.nodes(carData);
-			}, () => {
-				carData = carData.filter(d => d.x >= -CAR_PADDING && d.x <= w+CAR_PADDING);
-			}, () => carData.length < 3 
-		); //up to two cars at a time
+			carData.push(seedCar({w,h}));
+			carSimulation.nodes(carData);
+		}, () => {
+			//Cars to be removed
+			const removed = carData.filter(d => d.x < -CAR_PADDING || d.x > w+CAR_PADDING)
+				.reduce((acc,v) => {
+					acc.count += 1;
+					acc.delay += v.delay;
+					return acc;
+				}, {count:0, delay:0});
+			const count = (carData.count || 0) + removed.count;
+			const delay = (carData.delay || 0) + removed.delay;
+
+			//Update
+			carData = carData.filter(d => d.x >= -CAR_PADDING && d.x <= w+CAR_PADDING);
+			carData.count = count;
+			carData.delay = delay;
+			dispatcher.call('dataUpdated', null, pedData, carData, lrtData);
+		}, () => carData.length < 3); //up to two cars at a time
 
 		//TODO: LRT simulation:
 		lrtSimulation.nodes(lrtData).stop();
-		_seedNewParticle(300, 5000, () => {
+		_seedNewParticle(10000, 5000, () => {
 			lrtData.push(seedLrt({w,h}));
 			lrtSimulation.nodes(lrtData);
 		}, () => {
+			//LRT to be removed
+			const removed = lrtData.filter(d => d.x < -LRT_PADDING || d.x > w+LRT_PADDING)
+				.reduce((acc,v) => {
+					acc.count += 1;
+					acc.delay += v.delay;
+					return acc;
+				}, {count:0, delay:0});
+			const count = (lrtData.count || 0) + removed.count;
+			const delay = (lrtData.delay || 0) + removed.delay;
+
+			//Update
 			lrtData = lrtData.filter(d => d.x >= -LRT_PADDING && d.x <= w+LRT_PADDING);
+			lrtData.count = count;
+			lrtData.delay = delay;
+			dispatcher.call('dataUpdated', null, pedData, carData, lrtData);
 		}, () => lrtData.length < 1);
 
 

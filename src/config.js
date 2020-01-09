@@ -20,6 +20,6 @@ export const LRT_PADDING = 900;
 
 //LRT
 //Un-normalized in pixel space
-export const LRT_LENGTH = 350;
+export const LRT_LENGTH = 450;
 
-export const BASE_SPEED = 1;
+export const BASE_SPEED = .8;

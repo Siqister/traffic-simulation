@@ -31,15 +31,16 @@ export function seedPedestrian({w,h}){
 	const y0 = direction ? h : 0;
 
 	return {
-		id: Date.now(),
-		x: x0 + Math.random() * (x1 - x0),//in un-normalized cartesian space
-		y: y0, //in un-normalized cartesian space
+		id: 	Date.now(),
+		x: 		x0 + Math.random() * (x1 - x0),//in un-normalized cartesian space
+		y: 		y0, //in un-normalized cartesian space
 		_vx,
 		_vy,
-		_vx0:_vx,
-		_vy0:_vy,
-		r: 7 + Math.random()*5,
-		pplId: Math.floor(Math.random()*6)
+		_vx0: 	_vx,
+		_vy0: 	_vy,
+		r: 		7 + Math.random()*5,
+		pplId:  Math.floor(Math.random()*6),
+		delay: 	0
 	}
 }
 
@@ -54,33 +55,35 @@ export function seedCar({w,h}){
 	const y0 = direction? CAR_LANE_W*h : CAR_LANE_E*h;
 
 	return {
-		id: Date.now(),
-		x: x0,
-		y: y0,
+		id: 	Date.now(),
+		x: 		x0,
+		y: 		y0,
 		_vx,
 		_vy,
-		_vx0:_vx,
-		_vy0:_vy
+		_vx0: 	_vx,
+		_vy0: 	_vy,
+		delay: 	0 
 	}
 }
 
 export function seedLrt({w,h}){
 	const direction = Math.random() > 0.5;
 
-	const xSpeed = BASE_SPEED * 3;
+	const xSpeed = BASE_SPEED * 4;
 	const _vx = direction? -xSpeed : xSpeed;
 	const _vy = 0;
 	const x0 = direction? w+600 : -600;
 	const y0 = direction? LRT_LANE_W*h : LRT_LANE_E*h;
 
 	return {
-		id: Date.now(),
-		x: x0,
-		y: y0,
+		id: 	Date.now(),
+		x: 		x0,
+		y: 		y0,
 		_vx,
 		_vy,
-		_vx0:_vx,
-		_vy0:_vy
+		_vx0: 	_vx,
+		_vy0: 	_vy,
+		delay: 	0
 	}
 }
 
@@ -104,3 +107,18 @@ export function loadImage(url){
 		img.src = url;
 	});
 }
+
+const computeCumulativeDelay = function(data){
+	const prevTotal = data.delay || 0;
+	const currentTotal = data.map(d => d.delay).reduce((acc,val) => acc+val, 0) || 0;
+	return currentTotal + prevTotal;
+}
+
+const computeAvgDelay = function(data){
+	const prevCount = data.count || 0;
+	const count = data.length + prevCount;
+	return (computeCumulativeDelay(data)/count) || 0;
+}
+
+export {computeCumulativeDelay};
+export {computeAvgDelay};

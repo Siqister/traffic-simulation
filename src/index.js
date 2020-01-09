@@ -1,4 +1,4 @@
-import {svg, select} from 'd3';
+import {svg, select, dispatch, scaleSqrt} from 'd3';
 import 'babel-polyfill'; 
 
 import './style.css';
@@ -6,16 +6,53 @@ import url from './assets/qq-slow-zone-02.svg';
 
 import PedSimulation from './pedSimulation.js';
 import LightSimulation from './lightSimulation.js';
+import Counter from './counter.js';
+
+import {computeAvgDelay, computeCumulativeDelay} from './utils.js';
 
 
-//Global state
+//Shared dispatch
+const dispatcher = dispatch(
+	'dataUpdated'
+);
+
+//counter module displays level of service
+const scaleBack = scaleSqrt();
+const scaleFront = scaleSqrt();
+
+const pedCounter = Counter({label:'Ped', scaleBack, scaleFront});
+select('.sidebar').select('#los').append('div').call(pedCounter);
+const carCounter = Counter({label:'Vehicles', scaleBack, scaleFront});
+select('.sidebar').select('#los').append('div').call(carCounter);
+const lrtCounter = Counter({label:'LRT', scaleBack, scaleFront});
+select('.sidebar').select('#los').append('div').call(lrtCounter);
+
+dispatcher.on('dataUpdated', (pedData, carData, lrtData) => {
+	const cumulativeDelay = Math.max(
+		computeCumulativeDelay(pedData), 
+		computeCumulativeDelay(carData), 
+		computeCumulativeDelay(lrtData)
+	);
+	const avgDelay = Math.max(
+		computeAvgDelay(pedData), 
+		computeAvgDelay(carData), 
+		computeAvgDelay(lrtData)
+	);
+
+	scaleBack.domain([0, cumulativeDelay]);
+	scaleFront.domain([0, avgDelay]);
+
+	pedCounter.tick(pedData);
+	carCounter.tick(carData);
+	lrtCounter.tick(lrtData);
+});
+
 
 const init = async function(){
 
-	//Append <svg> DOM 
+	//Append <svg> to DOM
 	const root = await svg(url)
 		.then(doc => select(doc).select('svg')); //d3 selection
-	//Calculate <svg> viewbox size
 	const viewbox = root.attr('viewBox').split(' ');
 	const viewboxWidth = +viewbox[2];
 	const viewboxHeight = +viewbox[3];
@@ -23,9 +60,11 @@ const init = async function(){
 	select('#animation')
 		.style('width', `${viewboxWidth}px`)
 		.style('height', `${viewboxHeight}px`)
+		.style('top', '50%')
+		.style('transform', 'translate(0, -50%)')
 		.append(() => root.node());
 
-	//Append <canvas> overlay
+	//Append <canvas> overlay to DOM
 	root
 		.attr('width', viewboxWidth)
 		.attr('height', viewboxHeight);
@@ -48,22 +87,18 @@ const init = async function(){
 
 	//SIMULATIONS
 	const pedSimulation = PedSimulation({
-		x,y,w,h
+		x,y,w,h,
 	});
 	pedSimulation.call(null, root, canvas);
 
 	const lightSimulation = LightSimulation();
 	lightSimulation.call(null, root.select('#flowell'));
 
-	//Event dispatch
+	//Events
 	pedSimulation
-		.on('ped:enterRoad', () => {
-			lightSimulation.turnOn();
-		})
-		.on('ped:clearRoad', () => {
-			lightSimulation.turnOff();
-		});
-
+		.on('ped:enterRoad', () => lightSimulation.turnOn())
+		.on('ped:clearRoad', () => lightSimulation.turnOff())
+		.on('dataUpdated', (...args) => dispatcher.call('dataUpdated', null, ...args));
 
 }
 
