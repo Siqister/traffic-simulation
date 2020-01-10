@@ -1,3 +1,4 @@
+import 'babel-polyfill'; 
 import {randomNormal} from 'd3';
 import {
 	CROSSING_BOUND, 
@@ -10,10 +11,13 @@ import {
 	BASE_SPEED
 } from './config.js';
 
-export function delay(mean, std){
+export function delay(mean, std, log=false){
 	const randomGenerator = randomNormal(mean, std);
+
 	return function(){
-		return new Promise((resolve, reject) => setTimeout(resolve, Math.max(randomGenerator(), mean*.6)));
+		const next = Math.max(randomGenerator(), mean*.6);
+		if(log){ console.log('Next:', mean, std, next);}
+		return new Promise((resolve, reject) => setTimeout(resolve, next));
 	}
 }
 
@@ -87,6 +91,32 @@ export function seedLrt({w,h}){
 	}
 }
 
+const seedLoop = function(
+	delay = Promise.resolve(true),
+	seed = () => {},
+	space = () => true,
+	...updateFuncs
+){
+
+	const exports = async function(){
+		while(true){
+			await delay();
+			if(space()){ seed(); }
+			updateFuncs.forEach(f => { f(); });
+		}
+	}
+
+	exports.updateDelay = function(_){
+		delay = _;
+	}
+
+	return exports;
+
+}
+
+export {seedLoop}
+
+
 export function cartesianToIso({w,h}){
 	//transform coordinates from Cartesian plane defined by [0,0], [w,h]
 	//to isometric screen coordinates (with assumed 0,0 at the upper left corner)
@@ -122,3 +152,8 @@ const computeAvgDelay = function(data){
 
 export {computeCumulativeDelay};
 export {computeAvgDelay};
+
+
+
+
+

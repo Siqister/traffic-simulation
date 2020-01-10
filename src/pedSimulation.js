@@ -66,7 +66,7 @@ export default function PedSimulation({
 	);
 
 	//Random delay
-	let pedDelay = delay(PED_MEAN, PED_STD);
+	let pedDelay = delay(PED_MEAN, PED_STD, true);
 	let carDelay = delay(CAR_MEAN, CAR_STD);
 	let lrtDelay = delay(LRT_MEAN, LRT_STD);
 
@@ -97,32 +97,31 @@ export default function PedSimulation({
 
 	async function exports(root, canvas){
 
+		//DOM preparation
 		//Canvas context
 		ctx = canvas.node().getContext('2d');
 		cWidth = canvas.node().clientWidth;
 		cHeight = canvas.node().clientHeight;
+		ctx.fillStyle = '#ffe340';
+		ctx.strokeStyle = '#4d4d4f';
 
-		//Load car image
+		//Load prepared images
 		carImg = await loadImage(carSvgUrl);
-
-		//Look up path "d" for images of pedestrians and LRT
 		root.select('#lib').selectAll('path').each(function(){
 			pplPathData.push(select(this).attr('d'));
 		});
 		lrtLine = root.select('#lib').select('#lrt-outline_1_').attr('d');
 		lrtOutline = root.select('#lib').select('#lrt-line').attr('d');
 
-		//Iniitialize (x,y)
-		ctx.fillStyle = '#ffe340';
-		ctx.strokeStyle = '#4d4d4f';
 
-		//Start animation
+		//TICK ANIMATION LOOP
+		pedSimulation.nodes(pedData).stop(); //tick this simulation manually using requestAnimationFrame
+		carSimulation.nodes(carData).stop();
+		lrtSimulation.nodes(lrtData).stop();
 		_update();
 
-		//Ped simulation:
-		//Simulation results are stored in data
-		//Randomly seed new pedestrian
-		pedSimulation.nodes(pedData).stop(); //tick this simulation manually using requestAnimationFrame
+
+		//SEED NEW PARTICLES
 		_seedNewParticle(pedDelay, () => {
 			pedData.push(seedPedestrian({w,h})); //Seed new particle, and filter out particles out of bound
 			pedSimulation.nodes(pedData); //Re-initialize simulation with updated data
@@ -147,7 +146,6 @@ export default function PedSimulation({
 		});
 
 		//Car simulation:
-		carSimulation.nodes(carData).stop();
 		_seedNewParticle(carDelay, () => {
 			carData.push(seedCar({w,h}));
 			carSimulation.nodes(carData);
@@ -170,7 +168,6 @@ export default function PedSimulation({
 		}, () => carData.length < 3); //up to two cars at a time
 
 		//TODO: LRT simulation:
-		lrtSimulation.nodes(lrtData).stop();
 		_seedNewParticle(lrtDelay, () => {
 			lrtData.push(seedLrt({w,h}));
 			lrtSimulation.nodes(lrtData);

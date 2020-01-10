@@ -131,7 +131,7 @@ dispatcher.on('volumeUpdated', (type, d) => {
 	let randomDelay;
 	switch(type){
 		case 'ped': 
-			randomDelay = delay(PED_MEAN*1/(d+episilon), PED_STD);
+			randomDelay = delay(PED_MEAN*1/(d+episilon), PED_STD, true);
 			break;
 		case 'car': 
 			randomDelay = delay(CAR_MEAN*1/(d+episilon), CAR_STD);
