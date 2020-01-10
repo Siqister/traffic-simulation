@@ -40,11 +40,11 @@ const lrtCounter = Counter({label:'LRT', scaleBack, scaleFront});
 sidebar.select('#los').append('div').call(lrtCounter);
 
 //Simulation config
-const pedVolumeSlider = Slider({label:'Ped volume'}).on('sliderUpdate', d => dispatcher.call('volumeUpdated', null, 'ped', d));
+const pedVolumeSlider = Slider({label:'Ped volume', dataRange:[0,.3,1,10]}).on('sliderUpdate', d => dispatcher.call('volumeUpdated', null, 'ped', d));
 sidebar.select('#config').append('div').call(pedVolumeSlider);
-const carVolumeSlider = Slider({label:'Car volume'}).on('sliderUpdate', d => dispatcher.call('volumeUpdated', null, 'car', d));
+const carVolumeSlider = Slider({label:'Car volume', dataRange:[0,.3,1,5]}).on('sliderUpdate', d => dispatcher.call('volumeUpdated', null, 'car', d));
 sidebar.select('#config').append('div').call(carVolumeSlider);
-const lrtVolumeSlider = Slider({label:'LRT volume'}).on('sliderUpdate', d => dispatcher.call('volumeUpdated', null, 'lrt', d));
+const lrtVolumeSlider = Slider({label:'LRT volume', dataRange:[0,.3,1,5]}).on('sliderUpdate', d => dispatcher.call('volumeUpdated', null, 'lrt', d));
 sidebar.select('#config').append('div').call(lrtVolumeSlider);
 
 
@@ -131,13 +131,13 @@ dispatcher.on('volumeUpdated', (type, d) => {
 	let randomDelay;
 	switch(type){
 		case 'ped': 
-			randomDelay = delay(PED_MEAN*1/(d+episilon), PED_STD, true);
+			randomDelay = delay(PED_MEAN*1/(d+episilon), PED_STD*1/(d+episilon), true);
 			break;
 		case 'car': 
-			randomDelay = delay(CAR_MEAN*1/(d+episilon), CAR_STD);
+			randomDelay = delay(CAR_MEAN*1/(d+episilon), CAR_STD*1/(d+episilon));
 			break;
 		case 'lrt': 
-			randomDelay = delay(LRT_MEAN*1/(d+episilon), LRT_STD);
+			randomDelay = delay(LRT_MEAN*1/(d+episilon), LRT_STD*1/(d+episilon));
 			break;
 		default: 
 			return;

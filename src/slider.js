@@ -1,4 +1,4 @@
-import {scaleLinear, select, dispatch} from 'd3';
+import {scaleLinear, scaleOrdinal, select, dispatch} from 'd3';
 
 export default function Slider({
 	label='', 
@@ -7,7 +7,7 @@ export default function Slider({
 	themeColor = '#0173ce',
 	secondaryColor = '#95bde0',
 	height = 128,
-	dataRange = [0,1]
+	dataRange = [0,.5,1,2]
 }={}){
 
 	const margin = {t:16, r:0, b:24, l:16};
@@ -17,7 +17,7 @@ export default function Slider({
 	const ticks = [0,1,2,3];
 	let currentTick = 2;
 	const scaleY = scaleLinear().domain([Math.min(...ticks), Math.max(...ticks)]);
-	const scale = scaleLinear().domain([Math.min(...ticks), currentTick]).range(dataRange);
+	const scale = scaleOrdinal().domain(ticks).range(dataRange);
 	const dispatcher = dispatch('sliderUpdate');
 
 	function exports(root){

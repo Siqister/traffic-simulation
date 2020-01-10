@@ -12,13 +12,23 @@ import {
 } from './config.js';
 
 export function delay(mean, std, log=false){
-	const randomGenerator = randomNormal(mean, std);
 
-	return function(){
-		const next = Math.max(randomGenerator(), mean*.6);
-		if(log){ console.log('Next:', mean, std, next);}
-		return new Promise((resolve, reject) => setTimeout(resolve, next));
+	const randomGenerator = randomNormal(mean, std);
+	let circuitBreakResolve;
+
+	const exports = function(){
+		if(log){ console.log('Next:', mean, std);}
+
+		const circuitBreak = new Promise((resolve, reject) => { circuitBreakResolve = resolve; });
+		const next = new Promise((resolve, reject) => setTimeout(resolve, Math.max(randomGenerator(), mean*.6)));
+		return Promise.race([next, circuitBreak]);
 	}
+
+	exports.break = function(){
+		circuitBreakResolve();
+	}
+
+	return exports;
 }
 
 //for seeding pedestrians, cars, and streetcars
